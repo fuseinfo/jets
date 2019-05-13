@@ -1,0 +1,9 @@
+ProcessorStore:
+  __store: RedisProcessorStore2
+  host: 127.0.0.1
+  port: 6079
+  ssl: false
+vars:
+  serverName: localhost
+DAG:
+  $ref: DAG.yaml

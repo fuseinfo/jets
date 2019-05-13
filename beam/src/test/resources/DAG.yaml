@@ -1,0 +1,83 @@
+source1:
+  __source: KafkaSource
+  bootstrap.servers: ${serverName}:6001
+  group.id: events_prep
+  topic: events-unit-json
+  auto.offset.reset: earliest
+  valueParser:
+    __parser: JsonParser
+  valueSchema:
+    $ref: event.avsc
+
+source_filter:
+  __function: ScalaPredicate
+  from: source1
+  test: event_data.containsKey("customer_id")
+
+sourceWithKey:
+  __function: ScalaKeyMapper
+  schema: >
+    {"type":"record","name":"EventKey","fields":[{"name":"customer_id","type":"string"}]}
+  keyMapping:
+    customer_id: event_data.get("customer_id")
+
+sinkAvro:
+  __sink: KafkaSink
+  bootstrap.servers: ${serverName}:6001
+  topic: events-unit-avro
+  linger.ms: 0
+  formatter:
+    __formatter: AvroFormatter
+    schema.registry.url: http://${serverName}:6002
+
+sourceAvro:
+  __source: KafkaSource
+  bootstrap.servers: ${serverName}:6001
+  group.id: events_merge
+  topic: events-unit-avro
+  auto.offset.reset: earliest
+  parser:
+    __parser: AvroParser
+    schema.registry.url: http://${serverName}:6002
+  keySchema: >
+    {"type":"record","name":"EventKey","fields":[{"name":"customer_id","type":"string"}]}
+  valueSchema:
+    $ref: event.avsc
+
+KeyWithType:
+  __function: ScalaKeyMapper
+  schema: >
+    {"type":"record","name":"EventKey2","fields":[{"name":"customer_id","type":"string"},{"name":"event_type","type":"string"}]}
+  keyMapping:
+    customer_id: event_data.get("customer_id")
+    event_type: event_type
+
+window_store:
+  __store: ProcessorStore
+
+merge:
+  __function: ScalaTransformer
+  schema:
+    $ref: alert.avsc
+  valueMapping:
+    $ref: alert.yaml
+  stores: window_store
+  processorStore: window_store
+  keyMapping:
+    customer_id: event_data.get("customer_id")
+    event_type: event_type
+  timers:
+    __timer: RetryTimer
+    interval: 400
+    timeout: 10000
+  timerMapping:
+    customer_id: ""
+    event_type: ""
+
+sinkJson:
+  __sink: KafkaSink
+  bootstrap.servers: ${serverName}:6001
+  topic: alert-json
+  linger.ms: 0
+  valueFormatter:
+    __formatter: JsonFormatter

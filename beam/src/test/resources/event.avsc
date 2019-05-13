@@ -1,0 +1,10 @@
+{
+  "type" : "record",
+  "name" : "event",
+  "fields" : [
+    {"name" : "event_timestamp", "type" : "string"},
+    {"name" : "event_source", "type" : "string"},
+    {"name" : "event_type", "type" : "string"},
+    {"name" : "event_data", "type" : {"type": "map", "values": "string"}}
+  ]
+}

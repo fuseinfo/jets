@@ -1,0 +1,12 @@
+__init__: |
+  val sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX" )
+"event_timestamp": sdf.parse(event_timestamp)
+"customer_id": event_data.getOrDefault("customer_id","0").toLong
+"event_type": event_type
+"event_common":
+  "event_IP": event_data.getOrDefault("customer_IP","")
+  "event_source": event_source
+"event_data": |
+  event_data.remove("customer_IP")
+  event_data.remove("customer_id")
+  event_data

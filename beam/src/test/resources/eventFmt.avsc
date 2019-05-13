@@ -1,0 +1,14 @@
+{
+  "type" : "record",
+  "name" : "eventFmt",
+  "namespace" : "com.fuseinfo.jets",
+  "fields" : [
+    {"name" : "event_timestamp", "type" : {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name" : "customer_id", "type" : "long"},
+    {"name" : "event_type", "type" : "string"},
+    {"name" : "event_common", "type": {"type": "record", "name": "EventCommonRecord", "fields": [
+      {"name" : "event_IP", "type" : "string"},
+      {"name" : "event_source", "type" : "string"}]}},
+    {"name" : "event_data", "type" : {"type": "map", "values": "string"}}
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "type" : "record",
+  "name" : "alert",
+  "fields" : [
+    {"name" : "alert_timestamp", "type" : {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name" : "alert_type", "type" : "string"},
+    {"name" : "customer_id", "type" : "long"},
+    {"name" : "customer_name", "type" : "string"},
+    {"name" : "old_street_address", "type" : "string"},
+    {"name" : "old_additional_info", "type" : "string"},
+    {"name" : "old_city", "type" : "string"},
+    {"name" : "old_province", "type" : "string"},
+    {"name" : "old_postal_code", "type" : "string"},
+    {"name" : "old_country", "type" : "string"},
+    {"name" : "new_street_address", "type" : "string"},
+    {"name" : "new_additional_info", "type" : "string"},
+    {"name" : "new_city", "type" : "string"},
+    {"name" : "new_province", "type" : "string"},
+    {"name" : "new_postal_code", "type" : "string"},
+    {"name" : "new_country", "type" : "string"},
+    {"name" : "ip_address", "type" : "string"}
+  ]
+}

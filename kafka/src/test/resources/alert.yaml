@@ -1,0 +1,32 @@
+__init__: |
+  val sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
+__foreach__ : |
+  val timestamp = sdf.parse(event_timestamp)
+  val ts = timestamp.getTime
+  if (event_type == "login") return saveEvent(ts)
+  if (event_type == "getAddress") return saveEvent(ts)
+  if (event_type != "updateAddress") return null
+  val loginRecord = loadEvent(Map("event_type"->"login"), ts)
+  val addressRecord = loadEvent(Map("event_type"->"getAddress"), ts)
+  if (loginRecord == null || addressRecord == null) {
+    toRetry(ts)
+    return null
+  }
+  val oldAddress = addressRecord.getMap[String]("event_data")
+"alert_timestamp": timestamp
+"alert_type": '"updateProfileAlert"'
+"customer_id": event_data.get("customer_id").toLong
+"customer_name": loginRecord.getMap[String]("event_data").getOrDefault("customer_name","")
+"old_street_address": oldAddress.getOrDefault("address1","")
+"old_additional_info" : oldAddress.getOrDefault("address2","")
+"old_city" : oldAddress.getOrDefault("city","")
+"old_province" : oldAddress.getOrDefault("province","")
+"old_postal_code" : oldAddress.getOrDefault("postal","")
+"old_country" : oldAddress.getOrDefault("country","")
+"new_street_address" : event_data.get("address1")
+"new_additional_info" : event_data.get("address2")
+"new_city" : event_data.get("city")
+"new_province" : event_data.get("province")
+"new_postal_code" : event_data.get("postal")
+"new_country" : event_data.get("country")
+"ip_address" : event_data.get("customer_IP")
