@@ -167,6 +167,8 @@ object KafkaFlowBuilder {
               lastValueSchema = fValueSchema
             case fn: KeyMapper =>
               lastKStream = fKStream.selectKey(fn)
+              val through =  paramNode.get("__through")
+              if (through != null) lastKStream = lastKStream.through(through.asText)
               lastKeySchema = fn.getKeySchema
               lastValueSchema = fValueSchema
             case fn: BranchPredicates =>
@@ -257,7 +259,7 @@ object KafkaFlowBuilder {
                 .withLoggingEnabled(new java.util.HashMap[String, String])
                 .withCachingEnabled()
             case "ProcessorStore" =>
-              storeDefMap.put(stepName, s"com.fuseinfo.jets.kafka.store.ProcessorStore[$keyType,$valueType]")
+              storeDefMap.put(stepName, s"com.fuseinfo.jets.kafka.store.ProcessorStore")
               val retentionPeriod = opts.get("retentionPeriod").map(_.toLong).getOrElse(86400000L)
               val numSegments = opts.get("numSegments").map(_.toInt).getOrElse(25)
               val windowSize = opts.get("windowSize").map(_.toLong).getOrElse(3600000L)

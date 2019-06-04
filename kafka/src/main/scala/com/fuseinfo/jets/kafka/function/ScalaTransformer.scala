@@ -125,8 +125,7 @@ class SchemaTransformer(keySchema:Schema, valueSchema:Schema, outSchema:Schema, 
               emptyFunc.apply(emptyKey, defaultValue)
             case _ => emptyKey
           }
-          new ProcessorStore[GenericRecord,GenericRecord](
-            windowStore.asInstanceOf[WindowStore[GenericRecord, GenericRecord]], defaultKey, defaultValue)
+          new ProcessorStore(windowStore.asInstanceOf[WindowStore[GenericRecord,GenericRecord]],defaultKey,defaultValue)
         case windowStore: WindowStore[_, _] => windowStore
         case sessionStore:SessionStore[_, _] => sessionStore
         case keyValueStore: KeyValueStore[_, _] => keyValueStore
@@ -163,7 +162,7 @@ class SchemaTransformer(keySchema:Schema, valueSchema:Schema, outSchema:Schema, 
     val timer = clazz.getDeclaredConstructor(classOf[ProcessorContext],
       classOf[(GenericRecord,GenericRecord,Int)=>GenericRecord],
       classOf[(GenericRecord, GenericRecord) => GenericRecord], classOf[ObjectNode],
-      classOf[ProcessorStore[GenericRecord, GenericRecord]])
+      classOf[ProcessorStore])
       .newInstance(context, punctuateFunc, keyFunc, childNode, processStore).asInstanceOf[Punctuator]
     context.schedule(interval, PunctuationType.WALL_CLOCK_TIME, timer)
   }
@@ -261,13 +260,13 @@ class SchemaTransformer(keySchema:Schema, valueSchema:Schema, outSchema:Schema, 
     } else null
   }
 
-  private def getProcessStore:Option[(String, ProcessorStore[GenericRecord, GenericRecord])]= try {
+  private def getProcessStore:Option[(String, ProcessorStore)]= try {
     val storeName = paramNode.get("processorStore") match {
       case null => paramNode.get("stores").asText.split(",")(0).trim
       case json => json.asText
     }
     val storeMap = storeDefs.map(t => t._2 -> t._1).toMap
-    Some((storeName, storeMap(storeName).asInstanceOf[ProcessorStore[GenericRecord, GenericRecord]]))
+    Some((storeName, storeMap(storeName).asInstanceOf[ProcessorStore]))
   } catch {
     case _:Exception => None
   }

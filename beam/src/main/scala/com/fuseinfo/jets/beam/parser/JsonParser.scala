@@ -18,6 +18,7 @@
 package com.fuseinfo.jets.beam.parser
 
 import com.fuseinfo.jets.beam.BeamParser
+import com.fuseinfo.jets.util.AvroUtils
 import org.apache.avro.Schema
 import org.apache.avro.Schema.{Field, Type}
 import org.apache.avro.generic.{GenericRecord, GenericRecordBuilder}
@@ -41,8 +42,8 @@ class JsonParser(paramNode:java.util.Map[String, AnyRef], schema:String, isKey:j
         if (schema.getType == Type.RECORD) {
           val builder = new GenericRecordBuilder(schema)
           map.obj.foreach { p =>
-            schema.getField(p._1) match {
-              case null =>
+            val fieldName = AvroUtils.formatName(p._1)
+            schema.getField(fieldName) match {
               case field: Field =>
                 val fSchema = field.schema
                 val (realSchema, isArray) = fSchema.getType match {
@@ -50,7 +51,8 @@ class JsonParser(paramNode:java.util.Map[String, AnyRef], schema:String, isKey:j
                   case Type.ARRAY => (fSchema.getElementType, true)
                   case _ => (fSchema, false)
                 }
-                builder.set(p._1, getValue(realSchema, p._2))
+                builder.set(fieldName, getValue(realSchema, p._2))
+              case _ =>
             }
           }
           builder.build

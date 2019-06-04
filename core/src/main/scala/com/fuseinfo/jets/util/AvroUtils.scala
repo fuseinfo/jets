@@ -95,4 +95,16 @@ object AvroUtils{
     }
     builder.build()
   }
+
+  def formatName(name: String): String =
+    if (name.length == 0) "_"
+    else {
+      val sb = new StringBuilder
+      val first = name.head
+      if (first <= '9' && first >= '0') sb.append('_')
+      name.foreach(c =>
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') sb.append(c)
+      )
+      sb.toString
+    }
 }

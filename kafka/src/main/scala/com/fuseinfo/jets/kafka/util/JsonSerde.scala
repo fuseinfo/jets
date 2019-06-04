@@ -17,6 +17,7 @@
 
 package com.fuseinfo.jets.kafka.util
 
+import com.fuseinfo.jets.util.AvroUtils
 import org.apache.avro.Schema
 import org.apache.avro.Schema.{Field, Type}
 import org.apache.avro.generic.{GenericRecord, GenericRecordBuilder}
@@ -56,7 +57,8 @@ class AvroJsonDeserializer(schema: Schema) extends Deserializer[GenericRecord] {
         if (schema.getType == Type.RECORD) {
           val builder = new GenericRecordBuilder(schema)
           map.obj.foreach { p =>
-            schema.getField(p._1) match {
+            val fieldName = AvroUtils.formatName(p._1)
+            schema.getField(fieldName) match {
               case field: Field =>
                 val fSchema = field.schema
                 val (realSchema, isArray) = fSchema.getType match {
@@ -64,7 +66,7 @@ class AvroJsonDeserializer(schema: Schema) extends Deserializer[GenericRecord] {
                   case Type.ARRAY => (fSchema.getElementType, true)
                   case _ => (fSchema, false)
                 }
-                builder.set(p._1, getValue(realSchema, p._2))
+                builder.set(fieldName, getValue(realSchema, p._2))
               case _ =>
             }
           }
@@ -79,7 +81,11 @@ class AvroJsonDeserializer(schema: Schema) extends Deserializer[GenericRecord] {
         } else if (schema.getType == Type.STRING) {
           map.toString
         } else null
-      case list:JArray => list.productIterator.toArray
+      case list:JArray =>
+        val listOut = new java.util.ArrayList[AnyRef]
+        val elementType = schema.getElementType
+        list.arr.foreach(v => listOut.add(getValue(elementType, v)))
+        listOut
       case null|JNull|JNothing => null
       case bool:JBool => java.lang.Boolean.valueOf(bool.value)
       case str:JString => str.values

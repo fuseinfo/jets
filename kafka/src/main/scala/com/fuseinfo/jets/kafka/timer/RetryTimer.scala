@@ -27,7 +27,7 @@ import org.apache.kafka.streams.processor.{ProcessorContext, Punctuator}
 
 class RetryTimer(context:ProcessorContext, punctuateFunc:(GenericRecord,GenericRecord,Boolean) => GenericRecord,
                  keyFunc:(GenericRecord, GenericRecord) => GenericRecord, params:ObjectNode,
-                 stateStore:ProcessorStore[GenericRecord, GenericRecord]) extends Punctuator {
+                 stateStore:ProcessorStore) extends Punctuator {
 
   private val expireTime =
     VarUtils.enrichString(JsonUtils.getOrElse(params, "timeout", "5000"), KafkaFlowBuilder.vars).toLong
