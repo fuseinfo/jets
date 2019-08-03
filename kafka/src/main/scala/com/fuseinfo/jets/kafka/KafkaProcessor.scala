@@ -43,6 +43,11 @@ abstract class SchemaTransformerSupplier extends StreamProcessor
 abstract class BranchPredicates extends StreamProcessor
   with Seq[Predicate[GenericRecord, GenericRecord]]
 
+abstract class SplitMapper extends StreamProcessor
+  with (KStream[GenericRecord, GenericRecord] => Map[String, KStream[GenericRecord, GenericRecord]]) {
+  def getValueSchema(child: String): Schema
+}
+
 abstract class AvroPredicate extends StreamProcessor
   with Predicate[GenericRecord, GenericRecord]
 
@@ -69,6 +74,8 @@ abstract class SinkKeyValueMapper extends StreamProcessor
 }
 
 abstract class StreamSink extends StreamProcessor with (KStream[GenericRecord, GenericRecord] => Unit)
+
+trait ErrorHandler extends ((Exception, GenericRecord, GenericRecord) => GenericRecord)
 
 trait EventCounter {
   def getEventCount:Long = 0L

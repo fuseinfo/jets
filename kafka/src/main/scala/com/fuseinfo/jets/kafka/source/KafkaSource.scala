@@ -30,7 +30,7 @@ import org.apache.kafka.streams.kstream.{Consumed, KStream, Predicate}
 
 import scala.collection.JavaConversions._
 
-class KafkaSource(paramNode:ObjectNode) extends SourceStream {
+class KafkaSource(stepName: String, paramNode:ObjectNode) extends SourceStream {
   @transient private val parser = new Schema.Parser
   private val keySchema:Schema = getSchema(paramNode.get("keySchema"))
   private val valueSchema:Schema = getSchema(paramNode.get("valueSchema"))

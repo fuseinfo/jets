@@ -45,7 +45,7 @@ class ScalaKeyMapperSuite extends FunSuite with EmbeddedKafkaWithSchemaRegistry 
       objNode.put("schema", """{"type":"record","name":"eventKey","fields":[{"name":"customerId","type":"long"}]}""")
       objNode.set("keyMapping", rulesNode)
       val streams = JsonData.getKafkaStreamWithData(builder, "unit-test") { stream =>
-        val keyMapper = new ScalaKeyMapper(objNode, null, schemaIn)
+        val keyMapper = new ScalaKeyMapper("unit", objNode, null, schemaIn)
         val transformed = stream.selectKey[GenericRecord](keyMapper)
         transformed.foreach(new ForeachAction[GenericRecord, GenericRecord]() {
           override def apply(key: GenericRecord, value: GenericRecord): Unit = {

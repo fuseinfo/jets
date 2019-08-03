@@ -18,12 +18,14 @@
 package com.fuseinfo.jets.kafka.function
 
 import com.fasterxml.jackson.databind.node.{ObjectNode, ValueNode}
-import com.fuseinfo.jets.kafka.KeyMapper
-import com.fuseinfo.jets.kafka.util.AvroFunctionFactory
+import com.fuseinfo.jets.kafka.{ErrorHandler, KeyMapper}
+import com.fuseinfo.jets.kafka.util.{AvroFunctionFactory, JsonUtils}
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
+import org.slf4j.LoggerFactory
 
-class ScalaKeyMapper(paramNode: ObjectNode, keySchema: Schema, valueSchema: Schema) extends KeyMapper {
+class ScalaKeyMapper(stepName:String, paramNode: ObjectNode, keySchema: Schema, valueSchema: Schema) extends KeyMapper {
+  private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val keyOutSchema = paramNode.get("schema") match {
     case valueNode:ValueNode => (new Schema.Parser).parse(valueNode.asText)
@@ -35,6 +37,16 @@ class ScalaKeyMapper(paramNode: ObjectNode, keySchema: Schema, valueSchema: Sche
   private var keyFunc = getFunc(keySchema, valueSchema, keyOutSchema, keyMapping)
 
   private var counter = 0L
+
+  private val onErrors = JsonUtils.initErrorFuncs(stepName, paramNode.get("onError")) match {
+    case Nil => new ErrorHandler {
+      override def apply(e: Exception, key: GenericRecord, value: GenericRecord): GenericRecord = {
+        logger.error(s"Key:${String.valueOf(key)}\nValue:${String.valueOf(value)}", e)
+        null
+      }
+    } :: Nil
+    case list => list
+  }
 
   private def getFunc(keySchema:Schema, valueSchema:Schema, outSchema:Schema, mapping:ObjectNode)= {
     val schemaName = "_schema_" + outSchema.getName.replaceAll("[^a-zA-Z0-9_-]", "")
@@ -48,13 +60,21 @@ class ScalaKeyMapper(paramNode: ObjectNode, keySchema: Schema, valueSchema: Sche
 
   override def apply(key: GenericRecord, value: GenericRecord): GenericRecord = {
     counter += 1
-    keyFunc(key, value)
+    try {
+      keyFunc(key, value)
+    } catch {
+      case e: Exception =>
+        onErrors.foldLeft(null: GenericRecord){(res, errorProcessor) =>
+          val output = errorProcessor(e, key, value)
+          if (output != null) output else res
+        }
+    }
   }
 
   override def getKeySchema: Schema = keyOutSchema
 
   override def reset(newNode: ObjectNode):Boolean =
-    scala.util.Try(keyFunc = new ScalaKeyMapper(newNode, keySchema, valueSchema).keyFunc).isSuccess
+    scala.util.Try(keyFunc = new ScalaKeyMapper(stepName, newNode, keySchema, valueSchema).keyFunc).isSuccess
 
   override def getEventCount: Long = counter
 

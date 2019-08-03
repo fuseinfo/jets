@@ -100,9 +100,7 @@ object KafkaFlowBuilder {
       val stepName = entry.getKey
       entry.getValue match {
         case stepNode:ObjectNode if stepNode.has("__source") =>
-          val sourceType = stepNode.get("__source").asText
           val paramNode = stepNode.deepCopy()
-          paramNode.without("__source")
           val servers = paramNode.get("bootstrap.servers") match {
             case serverList: TextNode =>
               VarUtils.enrichString(serverList.asText, vars).split(",").map(_.trim.toLowerCase).toSet
@@ -122,7 +120,7 @@ object KafkaFlowBuilder {
             props
           }))
           lastBuilder = builder
-          val sourceProcessor = newSourceProcessor(sourceType, paramNode)
+          val sourceProcessor = JsonUtils.initSourceFunc(stepName, paramNode)
           lastKStream = sourceProcessor(builder)
           lastKeySchema = sourceProcessor.getKeySchema
           lastValueSchema = sourceProcessor.getValueSchema
@@ -130,9 +128,7 @@ object KafkaFlowBuilder {
           processorMap.put(stepName, (lastKStream, lastKeySchema, lastValueSchema, lastNode))
 
         case stepNode:ObjectNode if stepNode.has("__function") =>
-          val funcType = stepNode.get("__function").asText
           val paramNode = stepNode.deepCopy()
-          paramNode.without("__function")
           val from = paramNode.get("__from")
           val (fKStream, fKeySchema, fValueSchema, fNode, idx) =
             if (from == null) (lastKStream, lastKeySchema, lastValueSchema, lastNode, 0)
@@ -144,9 +140,7 @@ object KafkaFlowBuilder {
               val tuple = processorMap.getOrElse(fromName, (lastKStream, lastKeySchema, lastValueSchema, lastNode))
               (tuple._1, tuple._2, tuple._3, tuple._4, fromIdx)
             }
-          paramNode.without("__function")
-          paramNode.without("__from")
-          val processor = newFuncProcessor(funcType, paramNode, lastKeySchema, lastValueSchema)
+          val processor = JsonUtils.initProcessorFunc(stepName, paramNode, fKeySchema, fValueSchema)
           lastNode = new Node(stepName, processor)
           val edge = new Edge(fNode.nodeName + ":" + stepName, fNode, lastNode)
           lastNode.addInEdge(edge)
@@ -179,6 +173,12 @@ object KafkaFlowBuilder {
               lastKStream = streams(0)
               lastKeySchema = fKeySchema
               lastValueSchema = fValueSchema
+            case fn: SplitMapper =>
+              val streamsMap = fn(fKStream)
+              streamsMap.foreach(p => processorMap.put(p._1, (p._2, fKeySchema, fn.getValueSchema(p._1), lastNode)))
+              lastKStream = streamsMap.head._2
+              lastKeySchema = fKeySchema
+              lastValueSchema = fn.getValueSchema(streamsMap.head._1)
             case fn: FlatKeyValueMapper =>
               lastKStream = fKStream.flatMap(fn)
               lastKeySchema = fn.getKeySchema
@@ -200,7 +200,6 @@ object KafkaFlowBuilder {
           processorMap.put(stepName, (lastKStream, lastKeySchema, lastValueSchema, lastNode))
 
         case stepNode:ObjectNode if stepNode.has("__sink") =>
-          val sinkType = stepNode.get("__sink").asText
           val paramNode = stepNode.deepCopy()
           val from = paramNode.get("__from")
           val (fKStream, fKeySchema, fValueSchema, fNode, idx) =
@@ -213,9 +212,7 @@ object KafkaFlowBuilder {
               val tuple = processorMap.getOrElse(fromName, (lastKStream, lastKeySchema, lastValueSchema, lastNode))
               (tuple._1, tuple._2, tuple._3, tuple._4, fromIdx)
             }
-          paramNode.without("__sink")
-          paramNode.without("__from")
-          val sink = newSinkProcessor(sinkType, paramNode, fKeySchema, fValueSchema)
+          val sink = JsonUtils.initSinkFunc(stepName, paramNode, fKeySchema, fValueSchema)
           sink(fKStream)
           val sinkNode = new Node(stepName, sink)
           val edge = new Edge(fNode.nodeName + ":" + stepName, fNode, sinkNode)
@@ -278,35 +275,6 @@ object KafkaFlowBuilder {
     val streamList = builderMap.map{case (_,(builder, conf)) => new KafkaStreams(builder.build(), conf)}.toList
     val nodeList = processorMap.map(_._2._4).toList
     (streamList, nodeList)
-  }
-
-  private def newSourceProcessor(value:String, paramNode:ObjectNode) = {
-    val clazz = try {
-      Class.forName(value)
-    } catch {
-      case _:ClassNotFoundException => Class.forName(packagePrefix + "source." + value)
-    }
-    clazz.getDeclaredConstructor(classOf[ObjectNode]).newInstance(paramNode).asInstanceOf[SourceStream]
-  }
-
-  private def newFuncProcessor(value:String, paramNode:ObjectNode, keySchema:Schema, valueSchema:Schema) = {
-    val clazz = try {
-      Class.forName(value)
-    } catch {
-      case _:ClassNotFoundException => Class.forName(packagePrefix + "function." + value)
-    }
-    clazz.getDeclaredConstructor(classOf[ObjectNode], classOf[Schema], classOf[Schema])
-      .newInstance(paramNode, keySchema, valueSchema).asInstanceOf[StreamProcessor]
-  }
-
-  private def newSinkProcessor(value:String, paramNode:ObjectNode, keySchema:Schema, valueSchema:Schema) = {
-    val clazz = try {
-      Class.forName(value)
-    } catch {
-      case _:ClassNotFoundException => Class.forName(packagePrefix + "sink." + value)
-    }
-    clazz.getDeclaredConstructor(classOf[ObjectNode], classOf[Schema], classOf[Schema])
-      .newInstance(paramNode, keySchema, valueSchema).asInstanceOf[StreamSink]
   }
 
   private def getSerde(str: String, schema:Schema) = {

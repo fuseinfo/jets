@@ -18,6 +18,11 @@
 package com.fuseinfo.jets.kafka.util
 
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
+import com.fuseinfo.jets.kafka.{ErrorHandler, KafkaFlowBuilder, SourceStream, StreamProcessor, StreamSink}
+import org.apache.avro.Schema
+
+import scala.collection.JavaConversions._
 
 object JsonUtils {
 
@@ -32,6 +37,81 @@ object JsonUtils {
     jsonNode.get(name) match {
       case null => None
       case json => Some(json.asText)
+    }
+  }
+
+  private def initInstance[T](className: String, prefix: String, paramNode: ObjectNode)(r: Class[_] => T) = {
+    r(try {
+      Class.forName(className)
+    } catch {
+      case _: ClassNotFoundException => Class.forName(prefix + className)
+    })
+  }
+
+  private def initFunc[T](step: String, pack: String, rootNode: JsonNode, prefix: String)(r: Class[_] => T) = {
+    rootNode match {
+      case objectNode: ObjectNode => initInstance[T](objectNode.get("__" + pack).asText, prefix, objectNode)(r)
+      case _ => initInstance[T](rootNode.asText, step, null)(r)
+    }
+  }
+
+  def initSourceFunc(step: String, rootNode: JsonNode): SourceStream = {
+    initFunc[SourceStream](step, "source", rootNode, KafkaFlowBuilder.packagePrefix + "source."){clazz =>
+      try {
+        clazz.getDeclaredConstructor(classOf[String], classOf[ObjectNode])
+          .newInstance(step, rootNode).asInstanceOf[SourceStream]
+      } catch {
+        case _: NoSuchElementException =>
+          clazz.getDeclaredConstructor(classOf[String]).newInstance(step).asInstanceOf[SourceStream]
+      }
+    }
+  }
+
+  def initProcessorFunc(step: String, rootNode: JsonNode, keySchema: Schema, valueSchema: Schema): StreamProcessor = {
+    initFunc[StreamProcessor](step, "function", rootNode, KafkaFlowBuilder.packagePrefix + "function."){clazz =>
+      try {
+        clazz.getDeclaredConstructor(classOf[String], classOf[ObjectNode], classOf[Schema], classOf[Schema])
+          .newInstance(step, rootNode, keySchema, valueSchema).asInstanceOf[StreamProcessor]
+      } catch {
+        case _: NoSuchElementException =>
+          clazz.getDeclaredConstructor(classOf[String], classOf[ObjectNode], classOf[Schema])
+            .newInstance(step, rootNode, valueSchema).asInstanceOf[StreamProcessor]
+      }
+    }
+  }
+
+  def initSinkFunc(step: String, rootNode: JsonNode, keySchema: Schema, valueSchema: Schema): StreamSink = {
+    initFunc[StreamSink](step, "sink", rootNode, KafkaFlowBuilder.packagePrefix + "sink."){clazz =>
+      try {
+        clazz.getDeclaredConstructor(classOf[String], classOf[ObjectNode], classOf[Schema], classOf[Schema])
+          .newInstance(step, rootNode, keySchema, valueSchema).asInstanceOf[StreamSink]
+      } catch {
+        case _: NoSuchElementException =>
+          clazz.getDeclaredConstructor(classOf[String], classOf[ObjectNode], classOf[Schema])
+            .newInstance(step, rootNode, valueSchema).asInstanceOf[StreamSink]
+      }
+    }
+  }
+
+  def initFuncArray[T](step: String, pack: String, root: JsonNode, prefix: String)(r:Class[_] => T): List[T] = {
+    root match {
+      case arrayNode: ArrayNode => arrayNode.elements.map(initFunc[T](step, pack, _, prefix)(r)).toList
+      case _ => Nil
+    }
+  }
+
+  def initErrorFuncs(step: String, root: JsonNode): List[ErrorHandler] = {
+    initFuncArray[ErrorHandler](step, "error", root, KafkaFlowBuilder.packagePrefix + "error."){clazz =>
+      try {
+        clazz.getDeclaredConstructor(classOf[String], classOf[ObjectNode])
+          .newInstance(step, root).asInstanceOf[ErrorHandler]
+      } catch {
+        case _: NoSuchElementException => try {
+          clazz.getDeclaredConstructor(classOf[String]).newInstance(step).asInstanceOf[ErrorHandler]
+        } catch {
+          case _: NoSuchElementException => clazz.newInstance().asInstanceOf[ErrorHandler]
+        }
+      }
     }
   }
 }

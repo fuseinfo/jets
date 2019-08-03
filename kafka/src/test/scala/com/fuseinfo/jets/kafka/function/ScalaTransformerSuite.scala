@@ -48,7 +48,7 @@ class ScalaTransformerSuite extends FunSuite with EmbeddedKafkaWithSchemaRegistr
       objNode.put("schema", schemaOut)
       objNode.set("valueMapping", rulesNode)
       val streams = JsonData.getKafkaStreamWithData(builder, "unit-test") { stream =>
-        val transformer = new ScalaTransformer(objNode,null, schemaIn)
+        val transformer = new ScalaTransformer("unit", objNode,null, schemaIn)
         val transformed = stream.transform(transformer)
         transformed.foreach(new ForeachAction[GenericRecord, GenericRecord](){
           override def apply(key: GenericRecord, value: GenericRecord): Unit = {

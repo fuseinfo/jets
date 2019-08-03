@@ -43,7 +43,7 @@ class ScalaPredicateSuite extends FunSuite with EmbeddedKafkaWithSchemaRegistry 
       val objNode = mapper.createObjectNode()
       objNode.put("test", """event_data.getOrDefault("customer_id","0") == "501013368151451"""")
       val streams = JsonData.getKafkaStreamWithData(builder, "unit-test") { stream =>
-        val predicator = new ScalaPredicate(objNode,null, schemaIn)
+        val predicator = new ScalaPredicate("unit", objNode,null, schemaIn)
         val transformed = stream.filter(predicator)
         transformed.foreach(new ForeachAction[GenericRecord, GenericRecord](){
           override def apply(key: GenericRecord, value: GenericRecord): Unit = {

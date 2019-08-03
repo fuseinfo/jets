@@ -52,7 +52,7 @@ object JsonData {
     props.setProperty("key.serializer","org.apache.kafka.common.serialization.StringSerializer")
     props.setProperty("value.serializer","org.apache.kafka.common.serialization.StringSerializer")
     Thread.sleep(1000)
-    var time = (System.currentTimeMillis / 1000 - 1) * 1000
+    val time = (System.currentTimeMillis / 1000 - 1) * 1000
     val producer = new KafkaProducer[String, String](props)
     scala.io.Source.fromInputStream(getClass.getClassLoader.getResourceAsStream(fileName), "UTF-8").getLines
       .foreach {msg =>
@@ -103,7 +103,7 @@ object JsonData {
     val parserNode = mapper.createObjectNode()
     parserNode.put("__parser", "JsonParser")
     objNode.set("valueParser", parserNode)
-    val source = new KafkaSource(objNode)
+    val source = new KafkaSource("source", objNode)
     f(source.apply(builder))
     new KafkaStreams(builder.build(), props)
   }

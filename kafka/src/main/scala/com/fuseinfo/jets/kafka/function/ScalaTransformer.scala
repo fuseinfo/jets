@@ -18,7 +18,7 @@
 package com.fuseinfo.jets.kafka.function
 
 import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode, ValueNode}
-import com.fuseinfo.jets.kafka.{KafkaFlowBuilder, SchemaTransformerSupplier}
+import com.fuseinfo.jets.kafka.{ErrorHandler, KafkaFlowBuilder, SchemaTransformerSupplier}
 import com.fuseinfo.jets.kafka.store.ProcessorStore
 import com.fuseinfo.jets.kafka.util.{AvroFunctionFactory, JsonUtils}
 import com.fuseinfo.jets.util.AvroUtils
@@ -28,12 +28,13 @@ import org.apache.kafka.streams.KeyValue
 import org.apache.kafka.streams.kstream.Transformer
 import org.apache.kafka.streams.processor.{ProcessorContext, PunctuationType, Punctuator, StateStore}
 import org.apache.kafka.streams.state.{KeyValueStore, SessionStore, WindowStore}
+import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
 import scala.collection.JavaConversions._
 import scala.util.Try
 
-class ScalaTransformer(paramNode: ObjectNode, keySchema: Schema, valueSchema: Schema)
+class ScalaTransformer(stepName: String, paramNode: ObjectNode, keySchema: Schema, valueSchema: Schema)
   extends SchemaTransformerSupplier {
 
   private val outSchema = paramNode.get("schema") match {
@@ -46,7 +47,7 @@ class ScalaTransformer(paramNode: ObjectNode, keySchema: Schema, valueSchema: Sc
   private var storeDefMap: Map[String, String] = _
 
   override def get: Transformer[GenericRecord, GenericRecord, KeyValue[GenericRecord, GenericRecord]] = {
-    transformer = new SchemaTransformer(keySchema, valueSchema, outSchema, valueMapping, paramNode, storeDefMap)
+    transformer = new SchemaTransformer(stepName, keySchema, valueSchema, outSchema, valueMapping, paramNode, storeDefMap)
     transformer
   }
 
@@ -57,7 +58,7 @@ class ScalaTransformer(paramNode: ObjectNode, keySchema: Schema, valueSchema: Sc
   def recompileTransformer(objectNode: ObjectNode): Boolean = transformer.resetFunc(objectNode)
 
   override def reset(newNode: ObjectNode):Boolean = try {
-    new ScalaTransformer(newNode, keySchema, valueSchema)
+    new ScalaTransformer(stepName, newNode, keySchema, valueSchema)
     transformer.resetFunc(newNode.get("valueMapping").asInstanceOf[ObjectNode])
   } catch {
     case _:Throwable => false
@@ -91,16 +92,26 @@ class ScalaTransformer(paramNode: ObjectNode, keySchema: Schema, valueSchema: Sc
 
 }
 
-class SchemaTransformer(keySchema:Schema, valueSchema:Schema, outSchema:Schema, valueMapping:ObjectNode,
-                        paramNode:ObjectNode, storeDefMap:Map[String, String])
+class SchemaTransformer(stepName: String, keySchema:Schema, valueSchema:Schema, outSchema:Schema,
+                        valueMapping:ObjectNode, paramNode:ObjectNode, storeDefMap:Map[String, String])
   extends Transformer[GenericRecord, GenericRecord, KeyValue[GenericRecord, GenericRecord]] {
 
+  private val logger = LoggerFactory.getLogger(this.getClass)
   private val timeout = JsonUtils.getOrElse(paramNode, "timeout", "15000").toLong
   private val storeNames = JsonUtils.get(paramNode,"stores").map(_.split(",").map(_.trim)).getOrElse(Array[String]())
   private var processorContext: ProcessorContext = _
   private val storeDefs = mutable.ArrayBuffer.empty[(StateStore, String, String)]
   @transient var counter = 0L
+  private val onErrors = JsonUtils.initErrorFuncs(stepName, paramNode.get("onError")) match {
+    case Nil => new ErrorHandler {
+      override def apply(e: Exception, key: GenericRecord, value: GenericRecord): GenericRecord = {
+        logger.error(s"Key:${String.valueOf(key)}\nValue:${String.valueOf(value)}", e)
+        null
+      }
 
+    } :: Nil
+    case list => list
+  }
   private var ruleFunc: (GenericRecord, GenericRecord) => GenericRecord = _
 
   override def init(context: ProcessorContext): Unit = {
@@ -168,7 +179,14 @@ class SchemaTransformer(keySchema:Schema, valueSchema:Schema, outSchema:Schema, 
   }
 
   override def transform(key: GenericRecord, value: GenericRecord): KeyValue[GenericRecord, GenericRecord] = {
-    val newVal = ruleFunc(key, value)
+    val newVal = try {
+      ruleFunc(key, value)
+    } catch {
+      case e: Exception => onErrors.foldLeft(null: GenericRecord){(res, errorProcessor) =>
+        val output = errorProcessor(e, key, value)
+        if (output != null) output else res
+      }
+    }
     if (newVal != null) {
       counter += 1
       new KeyValue(key, newVal)

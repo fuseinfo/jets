@@ -26,7 +26,7 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.kafka.common.serialization.Serde
 import org.apache.kafka.streams.kstream.{KStream, Produced}
 
-class KafkaSink(paramNode:ObjectNode, keySchema:Schema, valueSchema:Schema) extends StreamSink {
+class KafkaSink(stepName: String, paramNode:ObjectNode, keySchema:Schema, valueSchema:Schema) extends StreamSink {
   private val topic = VarUtils.enrichString(paramNode.get("topic").asText, KafkaFlowBuilder.vars)
   private val keyFormatter = getFormatter(true)
   private val valueFormatter = getFormatter(false)
