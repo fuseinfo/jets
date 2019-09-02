@@ -74,7 +74,7 @@ object KafkaFlowBuilder {
     rootNode.get("dashboard") match {
       case dashboardNode:ObjectNode =>
         val url = JsonUtils.getOrElse(dashboardNode, "url", "ws://127.0.0.1:8080")
-        val appName = JsonUtils.getOrElse(dashboardNode, "appName", "demo")
+        val appName = VarUtils.enrichString(JsonUtils.getOrElse(dashboardNode, "appName", "demo"), vars)
         val dashboardThread = new Thread {
           override def run(): Unit = {
             DashboardClient.heartbeatServices(url, appName, nodes, dagNode.asInstanceOf[ObjectNode])

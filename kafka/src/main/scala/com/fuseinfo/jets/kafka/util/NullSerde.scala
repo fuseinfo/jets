@@ -17,13 +17,11 @@
 
 package com.fuseinfo.jets.kafka.util
 
-import java.util
-
 import org.apache.avro.generic.GenericRecord
 import org.apache.kafka.common.serialization.{Deserializer, Serde, Serializer}
 
 object NullSerde extends Serde[GenericRecord]  {
-  override def configure(configs: util.Map[String, _], isKey: Boolean): Unit = {}
+  override def configure(configs: java.util.Map[String, _], isKey: Boolean): Unit = {}
 
   override def close(): Unit = {}
 
@@ -32,7 +30,7 @@ object NullSerde extends Serde[GenericRecord]  {
   override def deserializer(): Deserializer[GenericRecord] = new NullDeserializer
 
   class NullSerializer extends Serializer[GenericRecord] {
-    override def configure(configs: util.Map[String, _], isKey: Boolean): Unit = {}
+    override def configure(configs: java.util.Map[String, _], isKey: Boolean): Unit = {}
 
     override def serialize(topic: String, data: GenericRecord): Array[Byte] = null
 
@@ -40,7 +38,7 @@ object NullSerde extends Serde[GenericRecord]  {
   }
 
   class NullDeserializer extends Deserializer[GenericRecord] {
-    override def configure(configs: util.Map[String, _], isKey: Boolean): Unit = {}
+    override def configure(configs: java.util.Map[String, _], isKey: Boolean): Unit = {}
 
     override def deserialize(topic: String, data: Array[Byte]): GenericRecord = null
 

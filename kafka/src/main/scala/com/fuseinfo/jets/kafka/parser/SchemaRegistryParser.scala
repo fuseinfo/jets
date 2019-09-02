@@ -18,21 +18,21 @@
 package com.fuseinfo.jets.kafka.parser
 
 import com.fasterxml.jackson.databind.node.ObjectNode
-import com.fuseinfo.jets.kafka.KafkaFlowBuilder
+import com.fuseinfo.jets.kafka.util.SchemaRegistrySerde
+import com.fuseinfo.jets.kafka.{ErrorHandler, KafkaFlowBuilder}
 import com.fuseinfo.jets.util.VarUtils
-import io.confluent.kafka.streams.serdes.avro.GenericAvroSerde
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.kafka.common.serialization.Serde
 
 import scala.collection.JavaConversions._
 
-class SchemaRegistryParser(paramNode:ObjectNode, schema:Schema) extends (Boolean => Serde[GenericRecord]) {
+class SchemaRegistryParser(paramNode:ObjectNode, schema:Schema, onErrors: List[ErrorHandler[String]]) extends (Boolean => Serde[GenericRecord]) {
   private val keys = Set("schema.registry.url", "basic.auth.credentials.source", "schema.registry.basic.auth.user.info",
     "key.subject.name.strategy", "value.subject.name.strategy", "auto.register.schemas", "max.schemas.per.subject")
 
   override def apply(isKey: Boolean): Serde[GenericRecord] = {
-    val serde = new GenericAvroSerde()
+    val serde = new SchemaRegistrySerde(onErrors)
     val serdeConfig = new java.util.HashMap[String, String]
     paramNode.fields().foreach{entry =>
       val key = entry.getKey

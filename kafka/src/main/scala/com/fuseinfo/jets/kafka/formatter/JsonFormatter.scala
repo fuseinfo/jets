@@ -25,6 +25,6 @@ import org.apache.kafka.common.serialization.Serde
 
 class JsonFormatter(paramNode:ObjectNode, schema:Schema) extends (Boolean => Serde[GenericRecord]) {
 
-  override def apply(isKey: Boolean): Serde[GenericRecord] = new JsonSerde(schema)
+  override def apply(isKey: Boolean): Serde[GenericRecord] = new JsonSerde(schema, Nil)
 
 }

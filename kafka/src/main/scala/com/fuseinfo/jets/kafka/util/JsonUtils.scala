@@ -100,16 +100,16 @@ object JsonUtils {
     }
   }
 
-  def initErrorFuncs(step: String, root: JsonNode): List[ErrorHandler] = {
-    initFuncArray[ErrorHandler](step, "error", root, KafkaFlowBuilder.packagePrefix + "error."){clazz =>
+  def initErrorFuncs[T <: AnyRef](step: String, root: JsonNode): List[ErrorHandler[T]] = {
+    initFuncArray[ErrorHandler[T]](step, "error", root, KafkaFlowBuilder.packagePrefix + "error."){clazz =>
       try {
         clazz.getDeclaredConstructor(classOf[String], classOf[ObjectNode])
-          .newInstance(step, root).asInstanceOf[ErrorHandler]
+          .newInstance(step, root).asInstanceOf[ErrorHandler[T]]
       } catch {
         case _: NoSuchElementException => try {
-          clazz.getDeclaredConstructor(classOf[String]).newInstance(step).asInstanceOf[ErrorHandler]
+          clazz.getDeclaredConstructor(classOf[String]).newInstance(step).asInstanceOf[ErrorHandler[T]]
         } catch {
-          case _: NoSuchElementException => clazz.newInstance().asInstanceOf[ErrorHandler]
+          case _: NoSuchElementException => clazz.newInstance().asInstanceOf[ErrorHandler[T]]
         }
       }
     }

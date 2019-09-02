@@ -76,12 +76,12 @@ abstract class SinkKeyValueMapper extends StreamProcessor
 
 abstract class StreamSink extends StreamProcessor with (KStream[GenericRecord, GenericRecord] => Unit)
 
-trait ErrorHandler extends ((Exception, GenericRecord, GenericRecord) => GenericRecord)
+trait ErrorHandler[T <: AnyRef] extends ((Throwable, T, T) => T)
 
-class ErrorLogger(stepName:String, logger: Logger) extends ErrorHandler {
-  override def apply(e: Exception, key: GenericRecord, value: GenericRecord): GenericRecord = {
+class ErrorLogger[T <: AnyRef](stepName:String, logger: Logger) extends ErrorHandler[T] {
+  override def apply(e: Throwable, key: T, value: T): T = {
     logger.error(s"Key:${String.valueOf(key)}\nValue:${String.valueOf(value)}", e)
-    null
+    null.asInstanceOf[T]
   }
 }
 

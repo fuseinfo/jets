@@ -2,7 +2,7 @@ package com.fuseinfo.jets.kafka.function
 
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fuseinfo.jets.kafka.util.{AvroFunctionFactory, JsonUtils}
-import com.fuseinfo.jets.kafka.{AvroPredicate, ErrorHandler, ErrorLogger, KafkaFlowBuilder}
+import com.fuseinfo.jets.kafka.{AvroPredicate, ErrorLogger, KafkaFlowBuilder}
 import com.fuseinfo.jets.util.VarUtils
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
@@ -17,8 +17,8 @@ class ScalaPredicate(stepName: String, paramNode: ObjectNode, keySchema: Schema,
   private var testFunc = getTest(keySchema, valueSchema, testString)
   @transient private var counter = 0L
 
-  private val onErrors = JsonUtils.initErrorFuncs(stepName, paramNode.get("onError")) match {
-    case Nil => new ErrorLogger(stepName, logger) :: Nil
+  private val onErrors = JsonUtils.initErrorFuncs[GenericRecord](stepName, paramNode.get("onError")) match {
+    case Nil => new ErrorLogger[GenericRecord](stepName, logger) :: Nil
     case list => list
   }
 
@@ -31,7 +31,7 @@ class ScalaPredicate(stepName: String, paramNode: ObjectNode, keySchema: Schema,
       testFunc(key, value)
     } catch {
       case e: Exception =>
-        onErrors.foreach(errorProcessor => errorProcessor(e, key, value))
+        if (onErrors.nonEmpty) onErrors.foreach(errorProcessor=> errorProcessor.apply(e, key, value))
         false
     }
     if (result) counter += 1

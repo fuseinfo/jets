@@ -38,8 +38,8 @@ class ScalaKeyMapper(stepName:String, paramNode: ObjectNode, keySchema: Schema, 
 
   private var counter = 0L
 
-  private val onErrors = JsonUtils.initErrorFuncs(stepName, paramNode.get("onError")) match {
-    case Nil => new ErrorLogger(stepName, logger) :: Nil
+  private val onErrors = JsonUtils.initErrorFuncs[GenericRecord](stepName, paramNode.get("onError")) match {
+    case Nil => new ErrorLogger[GenericRecord](stepName, logger) :: Nil
     case list => list
   }
 
@@ -59,10 +59,12 @@ class ScalaKeyMapper(stepName:String, paramNode: ObjectNode, keySchema: Schema, 
       keyFunc(key, value)
     } catch {
       case e: Exception =>
-        onErrors.foldLeft(null: GenericRecord){(res, errorProcessor) =>
-          val output = errorProcessor(e, key, value)
-          if (output != null) output else res
-        }
+        if (onErrors.nonEmpty) {
+          onErrors.foldLeft(null: GenericRecord){(res, errorHandler) =>
+            val output = errorHandler.apply(e, key, value)
+            if (output != null) output else res
+          }
+        } else null
     }
   }
 

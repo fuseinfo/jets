@@ -19,7 +19,8 @@ package com.fuseinfo.jets.kafka.source
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode, ValueNode}
-import com.fuseinfo.jets.kafka.{KafkaFlowBuilder, SourceStream}
+import com.fuseinfo.jets.kafka.util.JsonUtils
+import com.fuseinfo.jets.kafka.{ErrorHandler, ErrorLogger, KafkaFlowBuilder, SourceStream}
 import com.fuseinfo.jets.util.VarUtils
 import io.confluent.kafka.streams.serdes.avro.GenericAvroSerde
 import org.apache.avro.Schema
@@ -27,13 +28,21 @@ import org.apache.avro.generic.GenericRecord
 import org.apache.kafka.common.serialization.Serde
 import org.apache.kafka.streams.StreamsBuilder
 import org.apache.kafka.streams.kstream.{Consumed, KStream, Predicate}
+import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions._
 
 class KafkaSource(stepName: String, paramNode:ObjectNode) extends SourceStream {
+  private val logger = LoggerFactory.getLogger(this.getClass)
+
   @transient private val parser = new Schema.Parser
   private val keySchema:Schema = getSchema(paramNode.get("keySchema"))
   private val valueSchema:Schema = getSchema(paramNode.get("valueSchema"))
+
+  private val onErrors = JsonUtils.initErrorFuncs[String](stepName, paramNode.get("onError")) match {
+    case Nil => new ErrorLogger[GenericRecord](stepName, logger) :: Nil
+    case list => list
+  }
 
   private val keyParser:Serde[GenericRecord] = getParser(true)
   private val valueParser:Serde[GenericRecord] = getParser(false)
@@ -73,8 +82,8 @@ class KafkaSource(stepName: String, paramNode:ObjectNode) extends SourceStream {
       Class.forName(clazz)
     } catch {
       case _:ClassNotFoundException => Class.forName(KafkaFlowBuilder.packagePrefix + "parser." + clazz)
-    }).getDeclaredConstructor(classOf[ObjectNode], classOf[Schema])
-      .newInstance(objNode, schema)
+    }).getDeclaredConstructor(classOf[ObjectNode], classOf[Schema], classOf[List[ErrorHandler[String]]])
+      .newInstance(objNode, schema, onErrors)
       .asInstanceOf[Boolean => Serde[GenericRecord]](isKey)
   }
 

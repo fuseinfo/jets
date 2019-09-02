@@ -105,8 +105,8 @@ class SchemaTransformer(stepName: String, counter: AtomicLong, keySchema:Schema,
   private var processorContext: ProcessorContext = _
   private val storeDefs = mutable.ArrayBuffer.empty[(StateStore, String, String)]
 
-  private val onErrors = JsonUtils.initErrorFuncs(stepName, paramNode.get("onError")) match {
-    case Nil => new ErrorLogger(stepName, logger) :: Nil
+  private val onErrors = JsonUtils.initErrorFuncs[GenericRecord](stepName, paramNode.get("onError")) match {
+    case Nil => new ErrorLogger[GenericRecord](stepName, logger) :: Nil
     case list => list
   }
   private var ruleFunc: (GenericRecord, GenericRecord) => GenericRecord = _
@@ -179,10 +179,13 @@ class SchemaTransformer(stepName: String, counter: AtomicLong, keySchema:Schema,
     val newVal = try {
       ruleFunc(key, value)
     } catch {
-      case e: Exception => onErrors.foldLeft(null: GenericRecord){(res, errorProcessor) =>
-        val output = errorProcessor(e, key, value)
-        if (output != null) output else res
-      }
+      case e: Throwable =>
+        if (onErrors.nonEmpty) {
+          onErrors.foldLeft(null: GenericRecord){(res, errorProcessor) =>
+            val output = errorProcessor(e, key, value)
+            if (output != null) output else res
+          }
+        } else null
     }
     if (newVal != null) {
       counter.getAndIncrement()

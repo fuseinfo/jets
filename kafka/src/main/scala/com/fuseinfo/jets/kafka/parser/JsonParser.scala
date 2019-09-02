@@ -18,11 +18,13 @@
 package com.fuseinfo.jets.kafka.parser
 
 import com.fasterxml.jackson.databind.node.ObjectNode
+import com.fuseinfo.jets.kafka.ErrorHandler
 import com.fuseinfo.jets.kafka.util.JsonSerde
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.kafka.common.serialization.Serde
 
-class JsonParser(paramNode:ObjectNode, schema:Schema) extends (Boolean => Serde[GenericRecord]) {
-  override def apply(isKey: Boolean): Serde[GenericRecord] = new JsonSerde(schema)
+class JsonParser(paramNode:ObjectNode, schema:Schema, onErrors: List[ErrorHandler[String]])
+  extends (Boolean => Serde[GenericRecord]) {
+  override def apply(isKey: Boolean): Serde[GenericRecord] = new JsonSerde(schema, onErrors)
 }

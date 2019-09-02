@@ -21,7 +21,9 @@ import java.nio.ByteBuffer
 import java.time.{Instant, LocalDate}
 import java.time.format.DateTimeFormatter
 
+import com.fuseinfo.jets.kafka.ErrorHandler
 import com.fuseinfo.jets.util.AvroUtils
+import javax.xml.bind.DatatypeConverter
 import org.apache.avro.{LogicalType, LogicalTypes, Schema}
 import org.apache.avro.Schema.{Field, Type}
 import org.apache.avro.generic.{GenericRecord, GenericRecordBuilder}
@@ -31,17 +33,17 @@ import org.json4s.jackson.JsonMethods
 
 import scala.collection.JavaConversions._
 
-class JsonSerde(var schema: Schema = null) extends Serde[GenericRecord] {
+class JsonSerde(var schema: Schema, onErrors: List[ErrorHandler[String]]) extends Serde[GenericRecord] {
   override def configure(configs: java.util.Map[String, _], isKey: Boolean): Unit = {}
 
   override def close(): Unit = {}
 
-  override def serializer(): Serializer[GenericRecord] = new AvroJsonSerializer()
+  override def serializer(): Serializer[GenericRecord] = new AvroJsonSerializer(onErrors)
 
-  override def deserializer(): Deserializer[GenericRecord] = new AvroJsonDeserializer(schema)
+  override def deserializer(): Deserializer[GenericRecord] = new AvroJsonDeserializer(schema, onErrors)
 }
 
-class AvroJsonSerializer extends Serializer[GenericRecord] {
+class AvroJsonSerializer(onErrors: List[ErrorHandler[String]]) extends Serializer[GenericRecord] {
   override def configure(configs: java.util.Map[String, _], isKey: Boolean): Unit = {}
 
   override def serialize(topic: String, data: GenericRecord): Array[Byte] =
@@ -50,20 +52,27 @@ class AvroJsonSerializer extends Serializer[GenericRecord] {
   override def close(): Unit = {}
 }
 
-class AvroJsonDeserializer(schema: Schema) extends Deserializer[GenericRecord] {
+class AvroJsonDeserializer(schema: Schema, onErrors: List[ErrorHandler[String]]) extends Deserializer[GenericRecord] {
   override def configure(configs: java.util.Map[String, _], isKey: Boolean): Unit = {}
 
-  override def deserialize(topic: String, data: Array[Byte]): GenericRecord =
+  override def deserialize(topic: String, data: Array[Byte]): GenericRecord = try {
     getValue(schema, JsonMethods.parse(new String(data, "UTF-8"))).asInstanceOf[GenericRecord]
+  } catch {
+    case e: Throwable =>
+      val value = data match {
+        case null => ""
+        case _ => DatatypeConverter.printHexBinary(data)
+      }
+      onErrors.foreach{errorHandler => errorHandler(e, null, value)}
+      null
+  }
 
   override def close(): Unit = {}
 
-  private def getSchemaType(schema: Schema): (Schema.Type, LogicalType) = {
-    schema.getType match {
-      case Type.UNION =>
-        schema.getTypes.find(_.getType != Type.NULL).map(s => (s.getType, s.getLogicalType)).getOrElse((Type.NULL, null))
-      case tp => (tp, schema.getLogicalType)
-    }
+  private def getSchemaType(schema: Schema): (Schema.Type, LogicalType) = schema.getType match {
+    case Type.UNION =>
+      schema.getTypes.find(_.getType != Type.NULL).map(s => (s.getType, s.getLogicalType)).getOrElse((Type.NULL, null))
+    case tp => (tp, schema.getLogicalType)
   }
 
   private def stringToInstant(str: String): Instant = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(str))
