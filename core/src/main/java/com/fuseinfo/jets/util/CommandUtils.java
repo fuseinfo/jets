@@ -40,7 +40,7 @@ public class CommandUtils {
             } else {
                 int idx = arg.indexOf('=');
                 if (idx >= 0) {
-                    opts.put(arg.substring(0, idx), arg.substring(idx + 1));
+                    vars.put(arg.substring(0, idx), arg.substring(idx + 1));
                 } else {
                     int length = size - i;
                     String[] result = new String[length];

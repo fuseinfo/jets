@@ -22,6 +22,7 @@ import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.kafka.streams.{KeyValue, StreamsBuilder}
 import org.apache.kafka.streams.kstream.{KStream, KeyValueMapper, Predicate, TransformerSupplier, ValueMapper}
+import org.slf4j.Logger
 
 trait WithKeySchema {
   def getKeySchema: Schema
@@ -76,6 +77,13 @@ abstract class SinkKeyValueMapper extends StreamProcessor
 abstract class StreamSink extends StreamProcessor with (KStream[GenericRecord, GenericRecord] => Unit)
 
 trait ErrorHandler extends ((Exception, GenericRecord, GenericRecord) => GenericRecord)
+
+class ErrorLogger(stepName:String, logger: Logger) extends ErrorHandler {
+  override def apply(e: Exception, key: GenericRecord, value: GenericRecord): GenericRecord = {
+    logger.error(s"Key:${String.valueOf(key)}\nValue:${String.valueOf(value)}", e)
+    null
+  }
+}
 
 trait EventCounter {
   def getEventCount:Long = 0L

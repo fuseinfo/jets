@@ -19,7 +19,8 @@ package com.fuseinfo.jets.util
 
 import java.nio.ByteBuffer
 import java.sql.Timestamp
-import java.time.{LocalDate, ZoneId}
+import java.time.{Instant, LocalDate, ZoneId}
+import java.util.concurrent.TimeUnit
 
 import org.apache.avro.Schema
 import org.apache.avro.Schema.Field
@@ -35,15 +36,30 @@ class AvroBuilder(schema:Schema) extends GenericRecordBuilder(schema) {
 
   def setBoolean(pos:Field, bool:java.lang.Boolean): GenericRecordBuilder = set(pos, bool)
 
+  def setBoolean(pos:Field, bool:String): GenericRecordBuilder =
+    scala.util.Try(set(pos, new java.lang.Boolean(bool))).getOrElse(this)
+
   def setBytes(pos:Field, bytes:java.nio.ByteBuffer): GenericRecordBuilder = set(pos, bytes)
 
   def setDouble(pos:Field, double:java.lang.Double): GenericRecordBuilder = set(pos, double)
 
+  def setDouble(pos:Field, double:String): GenericRecordBuilder =
+    scala.util.Try(set(pos, new java.lang.Double(double))).getOrElse(this)
+
   def setFloat(pos:Field, float:java.lang.Float): GenericRecordBuilder = set(pos, float)
+
+  def setFloat(pos:Field, float:String): GenericRecordBuilder =
+    scala.util.Try(set(pos, new java.lang.Float(float))).getOrElse(this)
 
   def setInt(pos:Field, int:java.lang.Integer): GenericRecordBuilder = set(pos, int)
 
+  def setInt(pos:Field, int:String): GenericRecordBuilder =
+    scala.util.Try(set(pos, new java.lang.Integer(int))).getOrElse(this)
+
   def setLong(pos:Field, long:java.lang.Long): GenericRecordBuilder = set(pos, long)
+
+  def setLong(pos:Field, long:String): GenericRecordBuilder =
+    scala.util.Try(set(pos, new java.lang.Long(long))).getOrElse(this)
 
   def setMap(pos:Field, map:java.util.Map[String, _ <: AnyRef]): GenericRecordBuilder = set(pos, map)
 
@@ -77,14 +93,21 @@ class AvroBuilder(schema:Schema) extends GenericRecordBuilder(schema) {
 
   def setTimestampMillis(pos:Field, ts:java.util.Date): GenericRecordBuilder = set(pos, ts.getTime)
 
+  def setTimestampMillis(pos:Field, instant:Instant): GenericRecordBuilder = set(pos, instant.toEpochMilli)
+
   def setTimestampMillis(pos:Field, str:String): GenericRecordBuilder = {
     setTimestampMillis(pos, Timestamp.valueOf(str))
   }
 
   def setTimestampMicros(pos:Field, long:java.lang.Long): GenericRecordBuilder = set(pos, long)
 
-  def setTimestampMicros(pos:Field, ts:Timestamp): GenericRecordBuilder = {
+  def setTimestampMicros(pos:Field, ts:Timestamp): GenericRecordBuilder =
     set(pos, ts.getTime * 1000 + (ts.getNanos / 1000 % 1000))
+
+  def setTimestampMicros(pos:Field, instant:Instant): GenericRecordBuilder = {
+    val micro = TimeUnit.SECONDS.toMicros(instant.getEpochSecond) +
+    TimeUnit.NANOSECONDS.toMicros(instant.getNano)
+    set(pos, micro)
   }
 
   def setTimestampMicros(pos:Field, str:String): GenericRecordBuilder = {

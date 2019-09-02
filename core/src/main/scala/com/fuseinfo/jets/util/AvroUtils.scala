@@ -20,7 +20,7 @@ package com.fuseinfo.jets.util
 import java.math.BigInteger
 import java.nio.ByteBuffer
 import java.sql.{Date, Timestamp}
-import java.time.LocalDate
+import java.time.{Instant, LocalDate}
 
 import org.apache.avro.Schema
 import org.apache.avro.Schema.Type
@@ -30,16 +30,15 @@ import org.apache.avro.util.Utf8
 import scala.collection.JavaConversions._
 
 class AvroUtils(obj: AnyRef) {
-  def asTimestampMillis(): Timestamp = {
-    if (obj != null) new Timestamp(obj.asInstanceOf[java.lang.Long]) else null
-  }
+  def asTimestampMillis(): Instant =
+    if (obj != null) Instant.ofEpochMilli(obj.asInstanceOf[java.lang.Long]) else null
 
-  def asTimestampMicros(): Timestamp = {
+  def asTimestampMicros(): Instant = {
     if (obj != null) {
       val long = obj.asInstanceOf[java.lang.Long]
-      val ts = new Timestamp(long / 1000)
-      ts.setNanos(((long % 1000000) * 1000).toInt)
-      ts
+      val instant = Instant.ofEpochMilli(long / 1000)
+      instant.plusNanos((long % 1000) * 1000)
+      instant
     } else null
   }
 

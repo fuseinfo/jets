@@ -2,7 +2,7 @@ package com.fuseinfo.jets.kafka.function
 
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fuseinfo.jets.kafka.util.{AvroFunctionFactory, JsonUtils}
-import com.fuseinfo.jets.kafka.{AvroPredicate, ErrorHandler, KafkaFlowBuilder}
+import com.fuseinfo.jets.kafka.{AvroPredicate, ErrorHandler, ErrorLogger, KafkaFlowBuilder}
 import com.fuseinfo.jets.util.VarUtils
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
@@ -18,13 +18,7 @@ class ScalaPredicate(stepName: String, paramNode: ObjectNode, keySchema: Schema,
   @transient private var counter = 0L
 
   private val onErrors = JsonUtils.initErrorFuncs(stepName, paramNode.get("onError")) match {
-    case Nil => new ErrorHandler {
-        override def apply(e: Exception, key: GenericRecord, value: GenericRecord): GenericRecord = {
-          logger.error(s"Key:${String.valueOf(key)}\nValue:${String.valueOf(value)}", e)
-          null
-        }
-
-      } :: Nil
+    case Nil => new ErrorLogger(stepName, logger) :: Nil
     case list => list
   }
 

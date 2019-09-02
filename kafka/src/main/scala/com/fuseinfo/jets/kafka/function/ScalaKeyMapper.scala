@@ -18,7 +18,7 @@
 package com.fuseinfo.jets.kafka.function
 
 import com.fasterxml.jackson.databind.node.{ObjectNode, ValueNode}
-import com.fuseinfo.jets.kafka.{ErrorHandler, KeyMapper}
+import com.fuseinfo.jets.kafka.{ErrorLogger, KeyMapper}
 import com.fuseinfo.jets.kafka.util.{AvroFunctionFactory, JsonUtils}
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
@@ -39,12 +39,7 @@ class ScalaKeyMapper(stepName:String, paramNode: ObjectNode, keySchema: Schema, 
   private var counter = 0L
 
   private val onErrors = JsonUtils.initErrorFuncs(stepName, paramNode.get("onError")) match {
-    case Nil => new ErrorHandler {
-      override def apply(e: Exception, key: GenericRecord, value: GenericRecord): GenericRecord = {
-        logger.error(s"Key:${String.valueOf(key)}\nValue:${String.valueOf(value)}", e)
-        null
-      }
-    } :: Nil
+    case Nil => new ErrorLogger(stepName, logger) :: Nil
     case list => list
   }
 

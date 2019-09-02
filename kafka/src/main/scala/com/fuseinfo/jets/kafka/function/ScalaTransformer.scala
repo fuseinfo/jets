@@ -17,8 +17,10 @@
 
 package com.fuseinfo.jets.kafka.function
 
+import java.util.concurrent.atomic.AtomicLong
+
 import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode, ValueNode}
-import com.fuseinfo.jets.kafka.{ErrorHandler, KafkaFlowBuilder, SchemaTransformerSupplier}
+import com.fuseinfo.jets.kafka.{ErrorLogger, KafkaFlowBuilder, SchemaTransformerSupplier}
 import com.fuseinfo.jets.kafka.store.ProcessorStore
 import com.fuseinfo.jets.kafka.util.{AvroFunctionFactory, JsonUtils}
 import com.fuseinfo.jets.util.AvroUtils
@@ -47,7 +49,7 @@ class ScalaTransformer(stepName: String, paramNode: ObjectNode, keySchema: Schem
   private var storeDefMap: Map[String, String] = _
 
   override def get: Transformer[GenericRecord, GenericRecord, KeyValue[GenericRecord, GenericRecord]] = {
-    transformer = new SchemaTransformer(stepName, keySchema, valueSchema, outSchema, valueMapping, paramNode, storeDefMap)
+    transformer = new SchemaTransformer(stepName, counter, keySchema, valueSchema, outSchema, valueMapping, paramNode, storeDefMap)
     transformer
   }
 
@@ -64,7 +66,8 @@ class ScalaTransformer(stepName: String, paramNode: ObjectNode, keySchema: Schem
     case _:Throwable => false
   }
 
-  override def getEventCount: Long = if (transformer == null) 0 else transformer.counter
+  private val counter = new AtomicLong()
+  override def getEventCount: Long = counter.get
 
   override def getValueSchema: Schema = outSchema
 
@@ -92,7 +95,7 @@ class ScalaTransformer(stepName: String, paramNode: ObjectNode, keySchema: Schem
 
 }
 
-class SchemaTransformer(stepName: String, keySchema:Schema, valueSchema:Schema, outSchema:Schema,
+class SchemaTransformer(stepName: String, counter: AtomicLong, keySchema:Schema, valueSchema:Schema, outSchema:Schema,
                         valueMapping:ObjectNode, paramNode:ObjectNode, storeDefMap:Map[String, String])
   extends Transformer[GenericRecord, GenericRecord, KeyValue[GenericRecord, GenericRecord]] {
 
@@ -101,15 +104,9 @@ class SchemaTransformer(stepName: String, keySchema:Schema, valueSchema:Schema, 
   private val storeNames = JsonUtils.get(paramNode,"stores").map(_.split(",").map(_.trim)).getOrElse(Array[String]())
   private var processorContext: ProcessorContext = _
   private val storeDefs = mutable.ArrayBuffer.empty[(StateStore, String, String)]
-  @transient var counter = 0L
-  private val onErrors = JsonUtils.initErrorFuncs(stepName, paramNode.get("onError")) match {
-    case Nil => new ErrorHandler {
-      override def apply(e: Exception, key: GenericRecord, value: GenericRecord): GenericRecord = {
-        logger.error(s"Key:${String.valueOf(key)}\nValue:${String.valueOf(value)}", e)
-        null
-      }
 
-    } :: Nil
+  private val onErrors = JsonUtils.initErrorFuncs(stepName, paramNode.get("onError")) match {
+    case Nil => new ErrorLogger(stepName, logger) :: Nil
     case list => list
   }
   private var ruleFunc: (GenericRecord, GenericRecord) => GenericRecord = _
@@ -188,7 +185,7 @@ class SchemaTransformer(stepName: String, keySchema:Schema, valueSchema:Schema, 
       }
     }
     if (newVal != null) {
-      counter += 1
+      counter.getAndIncrement()
       new KeyValue(key, newVal)
     } else null
   }
