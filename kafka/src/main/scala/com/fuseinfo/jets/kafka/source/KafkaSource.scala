@@ -82,7 +82,7 @@ class KafkaSource(stepName: String, paramNode:ObjectNode) extends SourceStream {
       Class.forName(clazz)
     } catch {
       case _:ClassNotFoundException => Class.forName(KafkaFlowBuilder.packagePrefix + "parser." + clazz)
-    }).getDeclaredConstructor(classOf[ObjectNode], classOf[Schema], classOf[List[ErrorHandler[String]]])
+    }).getDeclaredConstructor(classOf[ObjectNode], classOf[Schema], classOf[List[ErrorHandler[GenericRecord]]])
       .newInstance(objNode, schema, onErrors)
       .asInstanceOf[Boolean => Serde[GenericRecord]](isKey)
   }

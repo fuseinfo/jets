@@ -27,7 +27,7 @@ import org.apache.kafka.common.serialization.Serde
 
 import scala.collection.JavaConversions._
 
-class SchemaRegistryParser(paramNode:ObjectNode, schema:Schema, onErrors: List[ErrorHandler[String]]) extends (Boolean => Serde[GenericRecord]) {
+class SchemaRegistryParser(paramNode:ObjectNode, schema:Schema, onErrors: List[ErrorHandler[GenericRecord]]) extends (Boolean => Serde[GenericRecord]) {
   private val keys = Set("schema.registry.url", "basic.auth.credentials.source", "schema.registry.basic.auth.user.info",
     "key.subject.name.strategy", "value.subject.name.strategy", "auto.register.schemas", "max.schemas.per.subject")
 

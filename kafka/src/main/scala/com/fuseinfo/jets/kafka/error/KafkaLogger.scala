@@ -9,7 +9,7 @@ import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 
 import scala.collection.JavaConversions._
 
-class KafkaLogger(stepName:String, paramNode:ObjectNode) extends ErrorHandler[GenericRecord]{
+class KafkaLogger(stepName:String, paramNode:ObjectNode) extends ErrorHandler[AnyRef]{
   private val topic = paramNode.get("topic").asText
   private val producer = {
     val props = new Properties
@@ -20,7 +20,7 @@ class KafkaLogger(stepName:String, paramNode:ObjectNode) extends ErrorHandler[Ge
     new KafkaProducer[String, String](props)
   }
 
-  override def apply(e: Throwable, key: GenericRecord, value: GenericRecord): GenericRecord = {
+  override def apply(e: Throwable, key: AnyRef, value: AnyRef): GenericRecord = {
     producer.send(new ProducerRecord[String, String](topic, stepName, String.valueOf(value)))
     null
   }
